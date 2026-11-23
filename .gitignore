@@ -1,0 +1,5 @@
+venv/
+.shadow/
+logs/
+__pycache__/
+models/*.joblib
