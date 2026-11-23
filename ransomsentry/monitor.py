@@ -35,7 +35,8 @@ class EntropyCache:
     def update(self, path):
         before = self.values.get(path)
         after = file_entropy(path)
-        self.values[path] = after
+        if after is not None:          # don't overwrite with None if the file vanished
+            self.values[path] = after
         return before, after
 
     def move(self, src, dest):
