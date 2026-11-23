@@ -81,3 +81,10 @@ class RuleDetector:
 
     def is_malicious(self) -> bool:
         return self.threat_score() >= config.SCORE_THRESHOLD
+    def first_signal_time(self) -> float:
+        return self.signals[0][0] if self.signals else time.time()
+
+    def reset(self):
+        self.events.clear()
+        self.signals.clear()
+        self.last_rate_alert = 0.0

