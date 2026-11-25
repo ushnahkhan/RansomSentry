@@ -32,7 +32,13 @@ def manifest_path(target: Path) -> Path:
 def save_manifest(mpath: Path, manifest: dict):
     tmp = mpath.with_suffix(".tmp")
     tmp.write_text(json.dumps(manifest, indent=1))
-    os.replace(tmp, mpath)          # atomic: the manifest is never half-written
+    for _ in range(40):                 # Windows: antivirus/indexer may briefly lock the file
+        try:
+            os.replace(tmp, mpath)      # atomic swap
+            return
+        except PermissionError:
+            time.sleep(0.05)
+    os.replace(tmp, mpath)              # last try; raises if still locked         # atomic: the manifest is never half-written
 def encrypt(target: Path, delay: float, partial: int | None, note: bool):
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     mpath = manifest_path(target)

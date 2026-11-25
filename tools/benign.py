@@ -30,6 +30,10 @@ def gzip_rotate():   # log rotation: compress each file to .gz and delete origin
         p.unlink()
         time.sleep(0.02)
 
-
+def bulk_rename():   # user/tool renaming many files, e.g. .txt -> .md (hard case: extension change)
+    for p in list(LAB.glob("*.txt")):
+        p.rename(p.with_suffix(".md"))
+        time.sleep(0.01)
 if __name__ == "__main__":
-    {"edit": edit, "download": download, "resave": resave, "gzip_rotate": gzip_rotate}[sys.argv[1]]()
+    {"edit": edit, "download": download, "resave": resave, "gzip_rotate": gzip_rotate,
+     "bulk_rename": bulk_rename}[sys.argv[1]]()

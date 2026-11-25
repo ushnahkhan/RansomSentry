@@ -1,0 +1,83 @@
+Dataset: 811 windows from 123 recordings
+label  scenario      
+0      7z_add             13
+       7z_extract         10
+       bulk_rename        23
+       copy               24
+       delete             10
+       download           15
+       edit               60
+       git_clone          21
+       gzip_rotate        43
+       resave             14
+       robocopy           10
+       unzip              27
+       zip                18
+1      sim_fast           10
+       sim_medium         58
+       sim_nonote         18
+       sim_partial        88
+       sim_partial4k      85
+       sim_partial512    120
+       sim_slow          144
+
+=== 5-fold grouped cross-validation ===
+              precision    recall  f1-score   support
+
+      benign      0.993     1.000     0.997       288
+  ransomware      1.000     0.996     0.998       523
+
+    accuracy                          0.998       811
+   macro avg      0.997     0.998     0.997       811
+weighted avg      0.998     0.998     0.998       811
+
+Confusion matrix: TN=288 FP=0 FN=2 TP=521
+False-positive rate on benign windows: 0.0%
+ROC AUC: 1.000
+
+Accuracy per scenario:
+scenario
+sim_partial512    99%
+sim_slow          99%
+7z_add           100%
+7z_extract       100%
+delete           100%
+download         100%
+bulk_rename      100%
+copy             100%
+gzip_rotate      100%
+resave           100%
+robocopy         100%
+sim_fast         100%
+sim_medium       100%
+sim_nonote       100%
+edit             100%
+git_clone        100%
+sim_partial4k    100%
+sim_partial      100%
+unzip            100%
+zip              100%
+
+=== Detecting a ransomware mode the model never saw ===
+  unseen sim_fast     -> 100% of windows flagged
+  unseen sim_medium   -> 100% of windows flagged
+  unseen sim_nonote   -> 100% of windows flagged
+  unseen sim_partial  -> 100% of windows flagged
+  unseen sim_partial4k -> 100% of windows flagged
+  unseen sim_partial512 -> 97% of windows flagged
+  unseen sim_slow     -> 99% of windows flagged
+
+=== Feature importance ===
+  ext_change_ratio     0.324
+  rename_ratio         0.257
+  mean_entropy_delta   0.094
+  create_ratio         0.079
+  mean_entropy_after   0.064
+  modify_ratio         0.063
+  max_entropy_after    0.046
+  frac_entropy_jump    0.021
+  write_rate           0.018
+  n_events             0.014
+  unique_files         0.012
+  frac_high_entropy    0.004
+  delete_ratio         0.002

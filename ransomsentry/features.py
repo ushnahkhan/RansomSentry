@@ -18,7 +18,13 @@ class FeatureExtractor:
     def add(self, ev):
         with self.lock:
             self.events.append(ev)
+    def clear(self):
+        with self.lock:
+            self.events.clear()
 
+    def oldest(self) -> float:
+        with self.lock:
+            return self.events[0].timestamp if self.events else time.time()
     def compute(self, now: float | None = None):
         now = now or time.time()
         with self.lock:

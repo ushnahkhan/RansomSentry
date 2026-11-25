@@ -54,7 +54,7 @@ class RuleDetector:
         # a) entropy jump (plaintext -> encrypted)
         b, a = ev.entropy_before, ev.entropy_after
         if ev.kind in ("modified", "moved") and b is not None and a is not None:
-            if a >= config.ENTROPY_HIGH and a - b >= config.ENTROPY_JUMP:
+            if b > 0.5 and a >= config.ENTROPY_HIGH and a - b >= config.ENTROPY_JUMP:
                 self._alert(out, "entropy_jump", "HIGH", f"entropy {b:.2f} -> {a:.2f}", ev.path)
 
         # c) suspicious extension change

@@ -38,6 +38,8 @@ SCENARIOS = {
     "sim_slow":     (1, sim("--delay", "0.3")),
     "sim_partial":  (1, sim("--partial", "1024", "--delay", "0.02")),
     "sim_nonote":   (1, sim("--no-note", "--delay", "0.01")),
+    "sim_partial512": (1, sim("--partial", "512", "--delay", "0.05")),
+    "sim_partial4k":  (1, sim("--partial", "4096", "--delay", "0.05")),
     # ---------- benign (label 0) ----------
     "copy":         (0, ps(r"New-Item -ItemType Directory C:\Sandbox\copy -Force | Out-Null; Copy-Item C:\LabData\source\* C:\Sandbox\copy\ -Force")),    "robocopy":     (0, ["robocopy", str(SOURCE), r"C:\Sandbox\backup", "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NP"]),
     "zip":          (0, ps(r"Compress-Archive C:\Sandbox\* C:\Sandbox\archive.zip -Force")),
@@ -47,6 +49,7 @@ SCENARIOS = {
     "resave":       (0, [PY, "tools/benign.py", "resave"]),
     "gzip_rotate":  (0, [PY, "tools/benign.py", "gzip_rotate"]),
     "git_clone":    (0, ["git", "clone", "--depth", "1", "https://github.com/psf/requests", r"C:\Sandbox\requests"]),
+    "bulk_rename":  (0, [PY, "tools/benign.py", "bulk_rename"]),
 }
 if SEVENZIP.exists():
     SCENARIOS["7z_add"] = (0, [str(SEVENZIP), "a", r"C:\Sandbox\arch.7z", r"C:\Sandbox\*"])
@@ -63,6 +66,8 @@ def build_files(folder: Path, seed: int):
     for i in range(10):
         rows = "\n".join(f"{rng.randint(1,9999)},{rng.choice(WORDS)},{rng.random():.4f}" for _ in range(500))
         (folder / f"data_{i}.csv").write_text(rows)
+    for i in range(20):   # very repetitive documents, like TestDocs (entropy ~3)
+        (folder / f"memo_{i}.txt").write_text(f"Normal document number {i}. " * rng.randint(100, 600))
     for i in range(10):
         (folder / f"photo_{i}.jpg").write_bytes(os.urandom(rng.randint(20_000, 100_000)))
     for i in range(10):

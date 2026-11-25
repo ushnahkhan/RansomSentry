@@ -7,7 +7,7 @@ def shannon_entropy(data: bytes) -> float:
     probs = counts[counts > 0] / len(data)
     return float(-(probs * np.log2(probs)).sum())
 
-def file_entropy(path, max_bytes: int = 64 * 1024):
+def file_entropy(path, max_bytes: int = 4096):
     try:
         with open(path, "rb") as f:
             return shannon_entropy(f.read(max_bytes))
