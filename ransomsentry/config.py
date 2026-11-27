@@ -11,10 +11,17 @@ RATE_THRESHOLD    = 20
 SUSPICIOUS_EXTS   = {".locked", ".encrypted", ".crypt", ".enc", ".ransom"}
 RANSOM_NOTE_NAMES = {"readme.txt", "how_to_decrypt.txt", "restore_files.txt"}
 SCORE_THRESHOLD   = 10     # threat score that means "ransomware"
-CANARIES_ENABLED  = True
 BACKUP_MAX_MB = 50      # don't shadow-copy files bigger than this
-RULES_ENABLED   = True     # rule-based verdicts
-ML_ENABLED      = True     # Random Forest verdicts
 ML_THRESHOLD    = 0.8      # probability needed per window
 ML_CONSECUTIVE  = 2        # this many high windows in a row -> 
-ML_DEBUG = True    # print every ML probability + key features
+import os
+
+def _flag(name: str, default: bool) -> bool:
+    """Read an on/off setting from environment variable RS_<name> (used by tools\\evaluate.py)."""
+    v = os.environ.get("RS_" + name)
+    return default if v is None else v == "1"
+
+CANARIES_ENABLED = _flag("CANARIES", True)
+RULES_ENABLED    = _flag("RULES", True)
+ML_ENABLED       = _flag("ML", True)
+ML_DEBUG         = _flag("ML_DEBUG", False)

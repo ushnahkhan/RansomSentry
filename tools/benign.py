@@ -2,8 +2,9 @@
 import gzip, os, random, sys, time
 from pathlib import Path
 
-LAB = Path(r"C:\Sandbox")
-WORDS = "meeting report budget client invoice project update schedule review notes".split()
+LAB = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(r"C:\Sandbox")
+if LAB.resolve() not in (Path(r"C:\Sandbox").resolve(), Path(r"C:\TestDocs").resolve()):
+    sys.exit(f"REFUSED: {LAB} is not a test folder")WORDS = "meeting report budget client invoice project update schedule review notes".split()
 
 
 def edit():          # someone typing / saving documents
