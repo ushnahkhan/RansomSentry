@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markup import escape
 from ransomsentry import config
-
+from ransomsentry.status import STATUS
 console = Console()
 config.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 log = logging.getLogger("ransomsentry")
@@ -23,13 +23,17 @@ def alert(a):
     console.print(f"[{STYLE[a.severity]}]{a.severity:8}[/] {a.signal:12} "
                   f"{escape(a.detail)}  [dim]{escape(a.path)}[/dim]")
     log.warning("%s %s %s %s", a.severity, a.signal, a.detail, a.path)
+    STATUS.add_alert(a.severity, a.signal, a.detail, a.path)
+
 
 def detected(score: int):
     console.print(Panel(f"RANSOMWARE DETECTED  -  threat score {score}\nResponding...",
                         style="bold white on red"))
     log.critical("RANSOMWARE DETECTED score=%s", score)
+    STATUS.update(state="responding")
 
 def incident(report: dict):
     body = "\n".join(f"{k}: {v}" for k, v in report.items())
     console.print(Panel(escape(body), title="Incident report", border_style="red"))
     log.critical("INCIDENT %s", json.dumps(report, default=str))
+    STATUS.add_incident(report)

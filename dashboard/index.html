@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RansomSentry Dashboard</title>
+<style>
+:root{--bg:#0f1419;--panel:#171d24;--line:#26303b;--text:#e6edf3;--muted:#8b98a5;
+      --green:#2ea043;--red:#da3633;--amber:#d29922;--blue:#388bfd}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0}
+h1 span{color:var(--muted);font-weight:400;font-size:14px;margin-left:8px}
+.banner{margin:20px 24px;padding:20px 24px;border-radius:12px;font-size:24px;font-weight:700}
+.banner small{display:block;font-size:14px;font-weight:400;opacity:.85;margin-top:4px}
+.watching{background:rgba(46,160,67,.15);border:1px solid var(--green)}
+.responding{background:rgba(218,54,51,.22);border:1px solid var(--red);animation:pulse 1s infinite}
+.offline{background:#1c2128;border:1px solid var(--line);color:var(--muted)}
+@keyframes pulse{50%{background:rgba(218,54,51,.4)}}
+main{padding:0 24px 24px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+.stat{grid-column:span 3}.half{grid-column:span 6}.full{grid-column:span 12}
+.v{font-size:20px;font-weight:700;word-break:break-all}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
+.bar{height:10px;background:#0b0f14;border-radius:6px;margin:10px 0;position:relative;overflow:visible}
+.bar i{display:block;height:100%;border-radius:6px;transition:width .4s,background .4s}
+.bar b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text);opacity:.6}
+canvas{width:100%;height:120px;display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.sev{font-weight:700;font-size:11px;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.CRITICAL{background:var(--red);color:#fff}.HIGH{background:rgba(218,54,51,.25);color:#ff7b72}
+.MEDIUM{background:rgba(210,153,34,.25);color:#e3b341}.LOW{background:rgba(56,139,253,.2);color:#79c0ff}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;margin:2px 4px 2px 0;border:1px solid var(--line)}
+.on{border-color:var(--green);color:#56d364}.off{color:var(--muted);text-decoration:line-through}
+.inc{border:1px solid var(--line);border-left:4px solid var(--red);border-radius:8px;padding:12px;margin-bottom:10px}
+.inc dl{display:grid;grid-template-columns:190px 1fr;gap:4px 12px;margin:0;font-size:13px}
+.inc dt{color:var(--muted)} .inc dd{margin:0;word-break:break-word}
+.muted{color:var(--muted)} .scroll{max-height:340px;overflow:auto}
+@media(max-width:900px){.stat{grid-column:span 6}.half{grid-column:span 12}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ RansomSentry <span>behaviour-based ransomware detection</span></h1>
+  <span class="muted" id="clock"></span>
+</header>
+
+<div id="banner" class="banner offline">Agent offline<small>Start it with: python -m ransomsentry.main</small></div>
+
+<main>
+  <div class="card stat"><h2>Protected folder</h2><div class="v" id="folder">-</div></div>
+  <div class="card stat"><h2>Detection layers</h2><div id="layers">-</div></div>
+  <div class="card stat"><h2>Uptime</h2><div class="v" id="uptime">-</div></div>
+  <div class="card stat"><h2>Files backed up / incidents</h2><div class="v" id="counts">-</div></div>
+
+  <div class="card half">
+    <h2>ML classifier – ransomware probability</h2>
+    <div class="big" id="ml">-</div>
+    <div class="bar"><i id="mlbar" style="width:0"></i><b style="left:80%"></b></div>
+    <canvas id="spark"></canvas>
+    <div class="muted" style="font-size:12px">Last 60 s · dashed line = 0.8 threshold</div>
+  </div>
+
+  <div class="card half">
+    <h2>Rule engine – threat score (last 5 s)</h2>
+    <div class="big" id="score">0</div>
+    <div class="bar"><i id="scorebar" style="width:0"></i><b style="left:100%"></b></div>
+    <div class="muted" style="font-size:13px">Detection at 10 points · entropy jump 3 · extension change 3 ·
+      high rate 4 · ransom note 6 · canary 100</div>
+    <p class="muted" style="margin:14px 0 0">File events in last 2 s: <b id="events" style="color:var(--text)">0</b></p>
+  </div>
+
+  <div class="card half">
+    <h2>Live alerts</h2>
+    <div class="scroll"><table><thead><tr><th>Time</th><th>Severity</th><th>Signal</th><th>Detail</th></tr></thead>
+      <tbody id="alerts"><tr><td colspan="4" class="muted">No alerts yet</td></tr></tbody></table></div>
+  </div>
+
+  <div class="card half">
+    <h2>Incidents this session</h2>
+    <div class="scroll" id="incidents"><p class="muted">No incidents</p></div>
+  </div>
+
+  <div class="card full">
+    <h2>Incident history (all runs, from incidents.log)</h2>
+    <div class="scroll"><table><thead><tr><th>Time</th><th>Verdict</th><th>Detection (s)</th>
+      <th>Kill (s)</th><th>Files restored</th><th>Action</th></tr></thead>
+      <tbody id="history"></tbody></table></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+// File names are attacker-controlled: always escape before inserting into the page.
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tm = t => new Date(t * 1000).toLocaleTimeString();
+const dur = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60);
+  return (h ? h + "h " : "") + m + "m " + (s % 60) + "s"; };
+
+function render(s) {
+  const st = s.state || "offline";
+  const cls = st === "responding" ? "responding" : st === "watching" ? "watching" : "offline";
+  const cfg = s.config || {};
+  const folders = (cfg.protected || []).join(", ");
+  $("banner").className = "banner " + cls;
+  $("banner").innerHTML = {
+    watching:   "🟢 Watching – no threats detected<small>Monitoring " + esc(folders) + "</small>",
+    responding: "🔴 RANSOMWARE DETECTED – responding<small>Identifying process, killing it and restoring files…</small>",
+    offline:    "⚪ Agent offline<small>Start it with: python -m ransomsentry.main</small>"
+  }[cls];
+
+  $("folder").textContent = folders || "-";
+  $("layers").innerHTML = ["rules", "ml", "canaries"].map(k =>
+    `<span class="chip ${cfg[k] ? "on" : "off"}">${{rules:"Rules", ml:"ML", canaries:"Canaries"}[k]}</span>`).join("");
+  $("uptime").textContent = s.started_at && cls !== "offline" ? dur(Date.now()/1000 - s.started_at) : "-";
+  $("counts").textContent = (s.files_shadowed ?? "-") + " / " + (s.incidents || []).length;
+
+  const p = s.ml_prob;
+  $("ml").textContent = p == null ? "off" : p.toFixed(2);
+  $("mlbar").style.width = (p || 0) * 100 + "%";
+  $("mlbar").style.background = p >= 0.8 ? "var(--red)" : p >= 0.5 ? "var(--amber)" : "var(--green)";
+
+  const sc = s.rule_score || 0;
+  $("score").textContent = sc + " / 10";
+  $("scorebar").style.width = Math.min(sc / 10, 1) * 100 + "%";
+  $("scorebar").style.background = sc >= 10 ? "var(--red)" : sc > 0 ? "var(--amber)" : "var(--green)";
+  $("events").textContent = s.events_per_window ?? 0;
+
+  spark(s.ml_history || []);
+
+  const al = s.alerts || [];
+  $("alerts").innerHTML = al.length ? al.map(a => `<tr><td>${tm(a.t)}</td>
+      <td><span class="sev ${esc(a.severity)}">${esc(a.severity)}</span></td>
+      <td>${esc(a.signal)}</td><td>${esc(a.detail)}<br><span class="muted">${esc(a.path)}</span></td></tr>`).join("")
+    : `<tr><td colspan="4" class="muted">No alerts yet</td></tr>`;
+
+  const inc = s.incidents || [];
+  $("incidents").innerHTML = inc.length ? inc.map(r => `<div class="inc"><dl>
+      ${Object.entries(r).filter(([k]) => k !== "t").map(([k, v]) =>
+        `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}
+      <dt>time</dt><dd>${tm(r.t)}</dd></dl></div>`).join("")
+    : `<p class="muted">No incidents</p>`;
+}
+
+function spark(h) {
+  const c = $("spark"), d = devicePixelRatio || 1, ctx = c.getContext("2d");
+  const w = c.width = c.clientWidth * d, ht = c.height = 120 * d, now = Date.now() / 1000, span = 60;
+  ctx.clearRect(0, 0, w, ht);
+  ctx.strokeStyle = "#da3633"; ctx.setLineDash([6 * d, 4 * d]); ctx.lineWidth = d;
+  ctx.beginPath(); ctx.moveTo(0, ht * 0.2); ctx.lineTo(w, ht * 0.2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = "#388bfd"; ctx.lineWidth = 2 * d; ctx.beginPath();
+  let first = true;
+  for (const [t, p] of h) {
+    if (now - t > span) continue;
+    const x = w - (now - t) / span * w, y = ht - p * ht * 0.98 - d;
+    first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false;
+  }
+  ctx.stroke();
+}
+
+async function tick() {
+  let s;
+  try { s = await (await fetch("/api/status", {cache: "no-store"})).json(); }
+  catch { s = {state: "offline"}; }
+  render(s);
+  $("clock").textContent = new Date().toLocaleTimeString();
+}
+
+async function loadHistory() {
+  try {
+    const rows = await (await fetch("/api/history", {cache: "no-store"})).json();
+    $("history").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(r.time)}</td>
+        <td>${esc(r["verdict by"])}</td><td>${esc(r["detection time (s)"])}</td>
+        <td>${esc(r["time to kill (s)"])}</td><td>${esc(r["files damaged & restored"])}</td>
+        <td>${esc((r.action || "").slice(0, 60))}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="muted">No incidents logged yet</td></tr>`;
+  } catch {}
+}
+
+tick(); loadHistory();
+setInterval(tick, 1000);
+setInterval(loadHistory, 5000);
+</script>
+</body>
+</html>

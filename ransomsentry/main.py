@@ -7,6 +7,7 @@ from ransomsentry.detectors import Alert, RuleDetector
 from ransomsentry.features import FeatureExtractor
 from ransomsentry.monitor import start_monitor
 from collections import deque
+from ransomsentry.status import STATUS
 
 
 def run():
@@ -22,6 +23,11 @@ def run():
         clf = None
     tracker = responder.IOTracker()
     tracker.start()
+    STATUS.update(config={"protected": [str(d) for d in config.PROTECTED_DIRS],
+                          "rules": config.RULES_ENABLED, "ml": clf is not None,
+                          "canaries": config.CANARIES_ENABLED},
+                  files_shadowed=len(backup.hashes))
+    STATUS.start()
     state = {"busy": False, "source": "", "ml_prob": None}
     lock = threading.Lock()
 
@@ -53,6 +59,7 @@ def run():
         except Exception as e:
             alerts.info(f"[response error] {e!r}")
         finally:
+            STATUS.update(state="watching")
             det.reset()
             fx.clear()                      # don't let our own restore look like an attack
             state["busy"] = False
@@ -87,6 +94,7 @@ def run():
             trigger(det.first_signal_time(), f"rules (score {det.threat_score()})")
 
     obs = start_monitor(on_event)
+    STATUS.update(state="watching")
     alerts.info(f"RansomSentry running - rules {'ON' if config.RULES_ENABLED else 'OFF'}, "
                 f"ML {'ON' if clf else 'OFF'} - Ctrl+C to stop")
 
@@ -94,14 +102,17 @@ def run():
     try:
         while True:
             time.sleep(1)
+            STATUS.update(rule_score=det.threat_score())
             if clf is None or state["busy"]:
                 recent_p.clear(); ml_first = None
                 continue
             f = fx.compute()
             if not f:
+                STATUS.add_ml(0.0); STATUS.update(events_per_window=0)
                 recent_p.clear(); ml_first = None
                 continue
             p = clf.probability(f)
+            STATUS.add_ml(p); STATUS.update(events_per_window=f["n_events"])   
             state["ml_prob"] = p
             recent_p.append(p)
             if config.ML_DEBUG:
@@ -121,6 +132,7 @@ def run():
             elif high == 0:
                 ml_first = None
     except KeyboardInterrupt:
+        STATUS.update(state="stopped"); STATUS.write()
         obs.stop()
     obs.join()
 
